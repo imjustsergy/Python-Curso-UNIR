@@ -15,18 +15,20 @@ ARCHIVO_DATOS = Path("superstore_dataset2012.csv")
 ARCHIVO_SUBPLOTS = Path("visualizaciones_superstore.png")
 ARCHIVO_HEATMAP = Path("heatmap_correlaciones.png")
 ARCHIVO_SCATTER_3D = Path("scatter_3d_ventas_beneficio_descuento.png")
+ARCHIVO_SCATTER_2D = Path("scatter_2d_multivariante.png")
 
 
 def cargar_y_preparar_datos(ruta):
     """Carga el CSV, convierte fechas y comprueba los campos necesarios."""
     datos = pd.read_csv(ruta)
     columnas_requeridas = {
-        "Order Date", "Category", "Sales", "Profit", "Quantity", "Discount"
+        "Order Date", "Ship Date", "Category", "Sales", "Profit", "Quantity", "Discount"
     }
     faltantes = columnas_requeridas - set(datos.columns)
     if faltantes:
         raise ValueError(f"Faltan columnas necesarias: {sorted(faltantes)}")
 
+    # El CSV expresa las fechas en formato día/mes/año, por ello se usa dayfirst=True.
     datos["Order Date"] = pd.to_datetime(datos["Order Date"], dayfirst=True, errors="coerce")
     datos["Ship Date"] = pd.to_datetime(datos["Ship Date"], dayfirst=True, errors="coerce")
     datos = datos.dropna(subset=["Order Date", "Category", "Sales", "Profit"])
@@ -54,6 +56,7 @@ def crear_visualizaciones(datos):
     ejes[0, 1].tick_params(axis="x", rotation=12)
     limite_beneficio = datos["Profit"].abs().quantile(0.98)
     ejes[0, 1].set_ylim(-limite_beneficio, limite_beneficio)
+    ejes[0, 1].axhline(0, color="#333333", linewidth=0.8)
 
     # Matplotlib bivariante: muestra la relación entre ventas y beneficio por pedido.
     colores = np.where(datos["Profit"] >= 0, "#0f766e", "#b91c1c")
@@ -64,7 +67,10 @@ def crear_visualizaciones(datos):
     ejes[1, 0].set_ylabel("Beneficio")
 
     # Seaborn bivariante: resume los ingresos medios de cada categoría.
-    sns.barplot(data=datos, x="Category", y="Sales", estimator="mean", errorbar=None, ax=ejes[1, 1])
+    sns.barplot(
+        data=datos, x="Category", y="Sales", estimator="mean",
+        errorbar=("ci", 95), capsize=0.12, ax=ejes[1, 1]
+    )
     ejes[1, 1].set_title("Venta media por categoría (Seaborn)")
     ejes[1, 1].set_xlabel("Categoría")
     ejes[1, 1].set_ylabel("Ventas medias")
@@ -91,9 +97,15 @@ def crear_scatter_3d(datos):
     """Crea un scatter multivariante de Matplotlib para ventas, beneficio y descuento."""
     fig = plt.figure(figsize=(9, 7))
     eje = fig.add_subplot(111, projection="3d")
+    limite_ventas = datos["Sales"].quantile(0.99)
+    limite_beneficio = datos["Profit"].abs().quantile(0.99)
+    datos_visibles = datos.loc[
+        (datos["Sales"] <= limite_ventas)
+        & (datos["Profit"].abs() <= limite_beneficio)
+    ]
     puntos = eje.scatter(
-        datos["Sales"], datos["Profit"], datos["Discount"],
-        c=datos["Discount"], cmap="viridis", alpha=0.55, s=20
+        datos_visibles["Sales"], datos_visibles["Profit"], datos_visibles["Discount"],
+        c=datos_visibles["Discount"], cmap="viridis", alpha=0.55, s=20
     )
     eje.set_title("Ventas, beneficio y descuento (Matplotlib 3D)")
     eje.set_xlabel("Ventas")
@@ -105,12 +117,38 @@ def crear_scatter_3d(datos):
     plt.close(fig)
 
 
+def crear_scatter_multivariante_2d(datos):
+    """Relaciona ventas y beneficio codificando categoría y cantidad en un plano 2D."""
+    limite_ventas = datos["Sales"].quantile(0.99)
+    limite_beneficio = datos["Profit"].abs().quantile(0.99)
+    datos_visibles = datos.loc[
+        (datos["Sales"] <= limite_ventas)
+        & (datos["Profit"].abs() <= limite_beneficio)
+    ]
+    colores = {"Furniture": "#0057b8", "Office Supplies": "#0f766e", "Technology": "#b45309"}
+    fig, eje = plt.subplots(figsize=(9, 7))
+    for categoria, grupo in datos_visibles.groupby("Category"):
+        eje.scatter(
+            grupo["Sales"], grupo["Profit"], s=grupo["Quantity"] * 18,
+            color=colores.get(categoria, "#6b7280"), alpha=0.5, label=categoria
+        )
+    eje.axhline(0, color="#333333", linewidth=0.8)
+    eje.set_title("Ventas y beneficio por categoría y cantidad (Matplotlib 2D)")
+    eje.set_xlabel("Ventas")
+    eje.set_ylabel("Beneficio")
+    eje.legend(title="Categoría")
+    fig.tight_layout()
+    fig.savefig(ARCHIVO_SCATTER_2D, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     """Ejecuta la preparación, análisis descriptivo y generación de gráficos."""
     datos = cargar_y_preparar_datos(ARCHIVO_DATOS)
     crear_visualizaciones(datos)
     crear_heatmap(datos)
     crear_scatter_3d(datos)
+    crear_scatter_multivariante_2d(datos)
 
     print(f"Filas analizadas: {len(datos)}")
     print(f"Nulos restantes en columnas usadas: {datos[['Order Date', 'Category', 'Sales', 'Profit']].isna().sum().sum()}")
@@ -119,6 +157,7 @@ def main():
     print(f"Figura de subplots guardada: {ARCHIVO_SUBPLOTS}")
     print(f"Heatmap guardado: {ARCHIVO_HEATMAP}")
     print(f"Scatter 3D guardado: {ARCHIVO_SCATTER_3D}")
+    print(f"Scatter 2D multivariante guardado: {ARCHIVO_SCATTER_2D}")
 
 
 if __name__ == "__main__":
