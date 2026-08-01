@@ -5,14 +5,23 @@ from math import isfinite
 
 def ingresar_calificaciones():
     """Solicita materias y calificaciones, y devuelve ambas listas."""
+    # Las listas están sincronizadas: el mismo índice identifica una materia y su nota.
     materias = []
     calificaciones = []
 
     print("Introduce las materias y sus calificaciones (de 0 a 10).")
+    print("Para finalizar después de una materia, responde 'n' a la pregunta de continuación.")
     while True:
         materia = input("Nombre de la materia: ").strip()
         while not materia:
-            print("El nombre de la materia no puede estar vacío.")
+            salir = input(
+                "El nombre no puede estar vacío. ¿Deseas finalizar? (s/n): "
+            ).strip().lower()
+            if salir in ("s", "si", "sí"):
+                return materias, calificaciones
+            if salir not in ("n", "no"):
+                print("Responde con 's' para finalizar o 'n' para introducir una materia.")
+                continue
             materia = input("Nombre de la materia: ").strip()
 
         while True:
@@ -40,7 +49,7 @@ def ingresar_calificaciones():
 
 
 def calcular_promedio(calificaciones):
-    """Devuelve el promedio de una lista de calificaciones."""
+    """Devuelve el promedio; devuelve 0.0 si la lista está vacía."""
     if not calificaciones:
         return 0.0
     return sum(calificaciones) / len(calificaciones)
@@ -78,7 +87,7 @@ def mostrar_materias(titulo, materias, calificaciones, indices):
 
 
 def main():
-    """Ejecuta el flujo principal de la calculadora."""
+    """Coordina el ingreso de datos, los cálculos y el resumen final."""
     materias, calificaciones = ingresar_calificaciones()
 
     if not materias:
