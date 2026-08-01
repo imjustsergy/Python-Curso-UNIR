@@ -13,6 +13,7 @@ class Producto:
 
     @staticmethod
     def _validar_nombre(nombre):
+        """Valida que el nombre sea texto no vacío y devuelve su versión limpia."""
         if not isinstance(nombre, str):
             raise TypeError("El nombre debe ser una cadena de texto.")
         nombre = nombre.strip()
@@ -22,6 +23,7 @@ class Producto:
 
     @staticmethod
     def _validar_precio(precio):
+        """Valida que el precio sea numérico, finito y mayor o igual que cero."""
         if isinstance(precio, bool) or not isinstance(precio, (int, float)):
             raise TypeError("El precio debe ser un número.")
         precio = float(precio)
@@ -31,6 +33,7 @@ class Producto:
 
     @staticmethod
     def _validar_cantidad(cantidad):
+        """Valida que la cantidad sea un entero mayor o igual que cero."""
         if isinstance(cantidad, bool) or not isinstance(cantidad, int):
             raise TypeError("La cantidad debe ser un número entero.")
         if cantidad < 0:
@@ -83,13 +86,14 @@ class Inventario:
         return sum(producto.calcular_valor_total() for producto in self.productos)
 
     def listar_productos(self):
-        """Muestra los productos del inventario por consola."""
+        """Muestra los productos por consola y devuelve una copia de la lista."""
         if not self.productos:
             print("El inventario está vacío.")
-            return
+            return []
         print("\n--- Productos en inventario ---")
         for producto in self.productos:
             print(producto)
+        return self.productos.copy()
 
 
 def menu_principal(inventario):
@@ -101,13 +105,22 @@ def menu_principal(inventario):
         print("3. Listar productos")
         print("4. Calcular valor total del inventario")
         print("5. Salir")
+        print("6. Actualizar precio o cantidad")
         opcion = input("Selecciona una opción: ").strip()
 
         try:
             if opcion == "1":
                 nombre = input("Nombre del producto: ")
-                precio = float(input("Precio: ").strip().replace(",", "."))
-                cantidad = int(input("Cantidad: ").strip())
+                try:
+                    precio = float(input("Precio: ").strip().replace(",", "."))
+                except ValueError:
+                    print("El precio debe ser un número válido.")
+                    continue
+                try:
+                    cantidad = int(input("Cantidad: ").strip())
+                except ValueError:
+                    print("La cantidad debe ser un número entero válido.")
+                    continue
                 producto = Producto(nombre, precio, cantidad)
                 inventario.agregar_producto(producto)
                 print("Producto agregado correctamente.")
@@ -125,8 +138,32 @@ def menu_principal(inventario):
             elif opcion == "5":
                 print("Gracias por usar el sistema de inventario.")
                 break
+            elif opcion == "6":
+                nombre = input("Nombre exacto del producto: ")
+                producto = inventario.buscar_producto(nombre)
+                if producto is None:
+                    raise LookupError("Producto no encontrado.")
+                campo = input("¿Qué deseas actualizar? (1. Precio, 2. Cantidad): ").strip()
+                if campo == "1":
+                    try:
+                        precio = float(input("Nuevo precio: ").strip().replace(",", "."))
+                    except ValueError:
+                        print("El precio debe ser un número válido.")
+                        continue
+                    producto.actualizar_precio(precio)
+                elif campo == "2":
+                    try:
+                        cantidad = int(input("Nueva cantidad: ").strip())
+                    except ValueError:
+                        print("La cantidad debe ser un número entero válido.")
+                        continue
+                    producto.actualizar_cantidad(cantidad)
+                else:
+                    print("Opción de actualización no válida.")
+                    continue
+                print(f"Producto actualizado: {producto}")
             else:
-                print("Opción no válida. Selecciona un número del 1 al 5.")
+                print("Opción no válida. Selecciona un número del 1 al 6.")
         except (TypeError, ValueError) as error:
             print(f"Datos no válidos: {error}")
         except LookupError as error:
