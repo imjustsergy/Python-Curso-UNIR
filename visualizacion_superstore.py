@@ -14,6 +14,7 @@ import seaborn as sns
 ARCHIVO_DATOS = Path("superstore_dataset2012.csv")
 ARCHIVO_SUBPLOTS = Path("visualizaciones_superstore.png")
 ARCHIVO_HEATMAP = Path("heatmap_correlaciones.png")
+ARCHIVO_SCATTER_3D = Path("scatter_3d_ventas_beneficio_descuento.png")
 
 
 def cargar_y_preparar_datos(ruta):
@@ -27,7 +28,9 @@ def cargar_y_preparar_datos(ruta):
         raise ValueError(f"Faltan columnas necesarias: {sorted(faltantes)}")
 
     datos["Order Date"] = pd.to_datetime(datos["Order Date"], dayfirst=True, errors="coerce")
+    datos["Ship Date"] = pd.to_datetime(datos["Ship Date"], dayfirst=True, errors="coerce")
     datos = datos.dropna(subset=["Order Date", "Category", "Sales", "Profit"])
+    datos["Mes_Pedido"] = datos["Order Date"].dt.to_period("M")
     return datos
 
 
@@ -49,6 +52,8 @@ def crear_visualizaciones(datos):
     ejes[0, 1].set_xlabel("Categoría")
     ejes[0, 1].set_ylabel("Beneficio")
     ejes[0, 1].tick_params(axis="x", rotation=12)
+    limite_beneficio = datos["Profit"].abs().quantile(0.98)
+    ejes[0, 1].set_ylim(-limite_beneficio, limite_beneficio)
 
     # Matplotlib bivariante: muestra la relación entre ventas y beneficio por pedido.
     colores = np.where(datos["Profit"] >= 0, "#0f766e", "#b91c1c")
@@ -82,11 +87,30 @@ def crear_heatmap(datos):
     plt.close(fig)
 
 
+def crear_scatter_3d(datos):
+    """Crea un scatter multivariante de Matplotlib para ventas, beneficio y descuento."""
+    fig = plt.figure(figsize=(9, 7))
+    eje = fig.add_subplot(111, projection="3d")
+    puntos = eje.scatter(
+        datos["Sales"], datos["Profit"], datos["Discount"],
+        c=datos["Discount"], cmap="viridis", alpha=0.55, s=20
+    )
+    eje.set_title("Ventas, beneficio y descuento (Matplotlib 3D)")
+    eje.set_xlabel("Ventas")
+    eje.set_ylabel("Beneficio")
+    eje.set_zlabel("Descuento")
+    fig.colorbar(puntos, ax=eje, shrink=0.65, label="Descuento")
+    fig.tight_layout()
+    fig.savefig(ARCHIVO_SCATTER_3D, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     """Ejecuta la preparación, análisis descriptivo y generación de gráficos."""
     datos = cargar_y_preparar_datos(ARCHIVO_DATOS)
     crear_visualizaciones(datos)
     crear_heatmap(datos)
+    crear_scatter_3d(datos)
 
     print(f"Filas analizadas: {len(datos)}")
     print(f"Nulos restantes en columnas usadas: {datos[['Order Date', 'Category', 'Sales', 'Profit']].isna().sum().sum()}")
@@ -94,6 +118,7 @@ def main():
     print(f"Beneficio medio: {datos['Profit'].mean():.2f}")
     print(f"Figura de subplots guardada: {ARCHIVO_SUBPLOTS}")
     print(f"Heatmap guardado: {ARCHIVO_HEATMAP}")
+    print(f"Scatter 3D guardado: {ARCHIVO_SCATTER_3D}")
 
 
 if __name__ == "__main__":
